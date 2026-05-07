@@ -1,0 +1,10 @@
+=== ANOVA TEST ===
+F-stat: 384.20052962052387
+p-value: 4.441446534902346e-22
+
+=== PAIRED T-TEST ===
+RF-All vs MLP-All -> p=0.0000
+RF-All vs MLP-RFE -> p=0.0000
+RF-All vs RF-RFE -> p=0.4129
+RF-All vs KNN-All -> p=0.0116
+RF-All vs KNN-RFE -> p=0.0080
