@@ -12,6 +12,8 @@ This project goes beyond simple model training by building a **research-style ev
   - Multi-Layer Perceptron (MLP) - Deep learning-based classification
   - Random Forest (RF) - Ensemble tree-based learning
   - K-Nearest Neighbors (KNN) -  Distance-based classification
+  - Support Vector Machine (SVM) - Kernel Based classification
+  - XGBOOST - Gradient Boosting   
 
 - ✅ Feature Selection Support
   - Recursive Feature Elimination (RFE)
@@ -87,7 +89,6 @@ All generated outputs are stored inside the `outputs/` folder.
 Unlike basic ML projects, this implementation uses nested cross-validation, which provides a more reliable estimate of real-world model performance and reduces the risk of overfitting during hyperparameter tuning.
 
 📌 Future Improvements
-Add XGBoost & SVM models
 SHAP explainability
 Automated experiment tracking
 
