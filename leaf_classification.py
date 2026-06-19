@@ -116,13 +116,7 @@ plt.close()
 
 feature_sets = {
     "All": "passthrough",
-
-    "RFE": RFE(
-        estimator=DecisionTreeClassifier(
-            max_depth=5,
-            random_state=42
-        )
-    )
+    "RFE": "dynamic"
 }
 
 # ============================================================
@@ -135,8 +129,8 @@ models = {
         MLPClassifier(
             max_iter=300,
             early_stopping=True,
-            validation_fraction=0.1,
-            n_iter_no_change=10,
+            validation_fraction=0.2,
+            n_iter_no_change=15,
             random_state=42
         ),
         True
@@ -165,11 +159,57 @@ models = {
     "XGB": (
         XGBClassifier(
             eval_metric='mlogloss',
-            random_state=42
+            random_state=42,
+            tree_method="hist",
+            n_jobs=1
         ),
         False
     )
 }
+
+# ============================================================
+# DYNAMIC RFE GENERATOR
+# ============================================================
+def get_rfe_estimator(model_name):
+
+    if model_name == "SVM":
+
+        return SVC(
+            kernel="linear",
+            random_state=42
+        )
+
+    elif model_name == "RF":
+
+        return RandomForestClassifier(
+            n_estimators=100,
+            random_state=42,
+            n_jobs=1
+        )
+
+    elif model_name == "XGB":
+
+        return XGBClassifier(
+            eval_metric="mlogloss",
+            random_state=42,
+            n_estimators=100
+        )
+
+    elif model_name == "KNN":
+
+        return RandomForestClassifier(
+            n_estimators=100,
+            random_state=42,
+            n_jobs=1
+        )
+
+    elif model_name == "MLP":
+
+        return RandomForestClassifier(
+            n_estimators=100,
+            random_state=42,
+            n_jobs=1
+        )
 
 # ============================================================
 # PARAMETER GRID
@@ -195,17 +235,24 @@ def get_param_grid(model_name, fs_name):
 
         param_grid.update({
 
+
             "model__hidden_layer_sizes": [
-                (30,),
-                (50,),
-                (30, 30)
+                (8,),
+                (12,),
+                (16,),
+                (8, 8)
             ],
 
-            "model__alpha": np.logspace(-3, 1, 5),
+            "model__activation": [
+                "relu",
+                "tanh"
+            ],
+
+            "model__alpha": np.logspace(-3, -1, 3),
 
             "model__learning_rate_init": [
-                0.0005,
-                0.001
+                0.001,
+                0.01
             ],
 
             "model__learning_rate": [
@@ -222,19 +269,20 @@ def get_param_grid(model_name, fs_name):
         param_grid.update({
 
             "model__n_estimators": [
-                200,
-                500
+                50,
+                100,
+                200
             ],
 
             "model__max_depth": [
                 5,
                 10,
-                15
+                None
             ],
 
             "model__min_samples_split": [
-                5,
-                10
+                2,
+                5
             ],
 
             "model__min_samples_leaf": [
@@ -256,19 +304,22 @@ def get_param_grid(model_name, fs_name):
         param_grid.update({
 
             "model__n_neighbors": [
+                3,
                 5,
                 7,
-                9,
-                11
+                9
             ],
 
             "model__weights": [
-                "distance"
+                "uniform","distance"
             ],
 
             "model__p": [
                 1,
                 2
+            ],
+            "model__metric": [
+                "euclidean", "manhattan"
             ]
         })
 
@@ -283,7 +334,8 @@ def get_param_grid(model_name, fs_name):
             "model__C": [
                 0.1,
                 1,
-                10
+                10,
+                100
             ],
 
             "model__kernel": [
@@ -306,18 +358,20 @@ def get_param_grid(model_name, fs_name):
         param_grid.update({
 
             "model__n_estimators": [
-                100,
-                200
+                50,
+                100
             ],
 
             "model__max_depth": [
                 3,
-                5
+                6,
+                9
             ],
 
             "model__learning_rate": [
                 0.01,
-                0.1
+                0.1,
+                0.3
             ],
 
             "model__subsample": [
@@ -334,12 +388,20 @@ def get_param_grid(model_name, fs_name):
 
 def build_pipeline(fs, model, scale):
 
-    steps = [("fs", fs)]
+    steps = []
 
     if scale:
-        steps.append(("scaler", StandardScaler()))
+        steps.append(
+            ("scaler", StandardScaler())
+        )
 
-    steps.append(("model", model))
+    steps.append(
+        ("fs", fs)
+    )
+
+    steps.append(
+        ("model", model)
+    )
 
     return Pipeline(steps)
 
@@ -371,6 +433,13 @@ for model_name, (model, scale) in models.items():
 
     for fs_name, fs in feature_sets.items():
 
+        if fs_name == "RFE":
+
+            fs = RFE(
+                estimator=get_rfe_estimator(
+                    model_name
+                )
+            )
         print(f"\nRunning: {model_name} - {fs_name}")
 
         pipe = build_pipeline(fs, model, scale)
@@ -385,7 +454,7 @@ for model_name, (model, scale) in models.items():
             param_grid=param_grid,
             cv=inner_cv,
             scoring="f1_weighted",
-            n_jobs=-1
+            n_jobs=1
         )
 
         scores = cross_val_score(
@@ -560,7 +629,17 @@ best_model_name, best_fs_name = best_key.split("-")
 
 model, scale = models[best_model_name]
 
-fs = feature_sets[best_fs_name]
+if best_fs_name == "RFE":
+
+    fs = RFE(
+        estimator=get_rfe_estimator(
+            best_model_name
+        )
+    )
+
+else:
+
+    fs = "passthrough"
 
 best_pipe = build_pipeline(
     fs,
@@ -578,7 +657,7 @@ grid = GridSearchCV(
     param_grid=param_grid,
     cv=inner_cv,
     scoring="f1_weighted",
-    n_jobs=-1
+    n_jobs=1
 )
 
 # ============================================================
@@ -642,7 +721,17 @@ if best_model_name == "RF":
 
     rf_model = best_estimator.named_steps["model"]
 
-    importances = rf_model.feature_importances_
+importances = rf_model.feature_importances_
+
+if best_fs_name == "RFE":
+
+    selector = best_estimator.named_steps["fs"]
+
+    feature_names = X.columns[
+        selector.support_
+    ]
+
+else:
 
     feature_names = X.columns
 
@@ -728,5 +817,4 @@ print("- box_plot.png")
 print("- confusion_matrix.png")
 print("- feature_importance.png")
 print("- feature_importance.csv")
-print("- best_model.pkl")
 print("- requirements.txt")
